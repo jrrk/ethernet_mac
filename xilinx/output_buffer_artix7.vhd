@@ -23,7 +23,7 @@ entity output_buffer is
 	);
 end entity;
 
-architecture spartan_6 of output_buffer is
+architecture artix_7 of output_buffer is
 	-- Force putting input Flip-Flop into IOB so it doesn't end up in a normal logic tile
 	-- which would ruin the timing.
 	attribute iob : string;

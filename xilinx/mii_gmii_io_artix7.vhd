@@ -24,6 +24,28 @@ architecture artix_7 of mii_gmii_io is
 	constant MII_RX_INPUT_DELAY : natural := 10;
 	signal clock_mii_rx_ibufg   : std_ulogic;
 
+component ODDR2 is
+
+  generic(
+
+      DDR_ALIGNMENT : string := "NONE";
+      INIT          : bit    := '0';
+      SRTYPE        : string := "SYNC"
+      );
+
+  port(
+      Q           : out std_ulogic;
+
+      C0          : in  std_ulogic;
+      C1          : in  std_ulogic;
+      CE          : in  std_ulogic := 'H';
+      D0          : in  std_ulogic;
+      D1          : in  std_ulogic;
+      R           : in  std_ulogic := 'L';
+      S           : in  std_ulogic := 'L'
+    );
+end component;
+
 begin
 	clock_tx_o   <= clock_tx;
 	clock_rx_o   <= clock_mii_rx_io;

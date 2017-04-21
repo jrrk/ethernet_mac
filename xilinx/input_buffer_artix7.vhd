@@ -28,7 +28,7 @@ entity input_buffer is
 	);
 end entity;
 
-architecture spartan_6 of input_buffer is
+architecture artix_7 of input_buffer is
 	signal delayed : std_ulogic := '0';
 
 	-- Force putting input Flip-Flop into IOB so it doesn't end up in a normal logic tile
