@@ -37,11 +37,26 @@ architecture rtl of tx_fifo is
 	signal read_count_lv : std_logic_vector(11 downto 0);
 	signal read_count    : unsigned(11 downto 0);
 
+COMPONENT ethernet_mac_tx_fifo_xilinx
+  PORT (
+    rst : IN STD_LOGIC;
+    wr_clk : IN STD_LOGIC;
+    rd_clk : IN STD_LOGIC;
+    din : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+    wr_en : IN STD_LOGIC;
+    rd_en : IN STD_LOGIC;
+    dout : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+    full : OUT STD_LOGIC;
+    empty : OUT STD_LOGIC;
+    rd_data_count : OUT STD_LOGIC_VECTOR(11 DOWNTO 0)
+  );
+END COMPONENT;
+
 begin
 	-- Convert type
 	read_count <= unsigned(read_count_lv);
 
-	tx_data_fifo_inst : entity work.ethernet_mac_tx_fifo_xilinx
+	tx_data_fifo_inst : ethernet_mac_tx_fifo_xilinx
 		port map(
 			rst           => mac_tx_reset_i,
 			wr_clk        => clock_i,
