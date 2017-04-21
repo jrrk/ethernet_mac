@@ -24,6 +24,36 @@ architecture artix_7 of mii_gmii_io is
 	constant MII_RX_INPUT_DELAY : natural := 10;
 	signal clock_mii_rx_ibufg   : std_ulogic;
 
+component IBUFG is
+  generic(
+    CAPACITANCE : string := "DONT_CARE";
+    IBUF_DELAY_VALUE : string := "0";        
+    IBUF_LOW_PWR : boolean :=  TRUE;
+    IOSTANDARD  : string := "DEFAULT"
+    );
+
+  port(
+    O : out std_ulogic;
+
+    I : in std_ulogic
+    );
+end component;
+     
+component BUFGMUX is
+  generic (
+      CLK_SEL_TYPE : string  := "SYNC"
+  );
+
+  port(
+    O : out std_ulogic := '0';
+
+    I0 : in std_ulogic := '0';
+    I1 : in std_ulogic := '0';
+    S  : in std_ulogic := '0'
+    );
+
+end component;
+
 component ODDR2 is
 
   generic(

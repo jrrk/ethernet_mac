@@ -12,7 +12,7 @@ use ieee.std_logic_1164.all;
 library unisim;
 use unisim.vcomponents.all;
 
-architecture spartan6 of single_signal_synchronizer is
+architecture artix7 of single_signal_synchronizer is
 	signal signal_tmp : std_ulogic := '0';
 
 	-- Constrain registers
