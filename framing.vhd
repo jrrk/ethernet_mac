@@ -8,6 +8,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.std_logic_unsigned.all;
 
 use work.ethernet_types.all;
 use work.framing_common.all;
@@ -45,6 +46,7 @@ entity framing is
 		rx_data_o              : out t_ethernet_data;
 		rx_byte_received_o     : out std_ulogic;
 		rx_error_o             : out std_ulogic;
+		rx_frame_size_o        : out std_logic_vector(10 downto 0);
 
 		-- TX to MII
 		mii_tx_enable_o        : out std_ulogic;
@@ -83,11 +85,11 @@ architecture rtl of framing is
 		TX_INTERPACKET_GAP
 	);
 
-	signal tx_state                   : t_tx_state                                      := TX_IDLE;
+	signal tx_state                   : t_tx_state;
 	signal tx_frame_check_sequence    : t_crc32;
-	signal tx_padding_required        : natural range 0 to MIN_FRAME_DATA_BYTES + 4 + 1 := 0;
+	signal tx_padding_required        : natural range 0 to MIN_FRAME_DATA_BYTES + 4 + 1;
 	signal tx_interpacket_gap_counter : integer range 0 to INTERPACKET_GAP_BYTES;
-	signal tx_mac_address_byte        : integer range 0 to MAC_ADDRESS_BYTES;
+	signal tx_mac_address_byte        : std_logic_vector(2 downto 0);
 
 	-- Reception
 	type t_rx_state is (
@@ -97,14 +99,15 @@ architecture rtl of framing is
 		RX_SKIP_FRAME
 	);
 
-	signal rx_state                : t_rx_state := RX_WAIT_START_FRAME_DELIMITER;
+	signal rx_state                : t_rx_state;
 	signal rx_frame_check_sequence : t_crc32;
 	subtype t_rx_frame_size is natural range 0 to MAX_FRAME_DATA_BYTES + CRC32_BYTES + 1;
 	signal rx_frame_size       : t_rx_frame_size;
 	signal rx_is_group_address     : std_ulogic;
-	signal rx_mac_address_byte : integer range 0 to MAC_ADDRESS_BYTES;
+	signal rx_mac_address_byte : std_logic_vector(2 downto 0);
 
 begin
+    rx_frame_size_o <= std_logic_vector(to_unsigned(rx_frame_size,11));
 	-- Pass mii_tx_byte_sent_i through directly as long as data is being transmitted
 	-- to avoid having to prefetch data in the synchronous process
 	tx_byte_sent_o <= '1' when ((tx_state = TX_CLIENT_DATA or tx_state = TX_CLIENT_DATA_WAIT_SOURCE_ADDRESS or tx_state = TX_SOURCE_ADDRESS) and mii_tx_byte_sent_i = '1') else '0';
@@ -118,6 +121,7 @@ begin
 			tx_state        <= TX_IDLE;
 			mii_tx_enable_o <= '0';
 			tx_busy_o       <= '1';
+                        tx_padding_required <= 0;
 		elsif rising_edge(tx_clock_i) then
 			mii_tx_enable_o <= '0';
 			tx_busy_o       <= '0';
@@ -161,21 +165,21 @@ begin
 							-- as required in clause 3.2.9 a
 							tx_frame_check_sequence <= (others => '1');
 							-- Load MAC address counter
-							tx_mac_address_byte     <= 0;
+							tx_mac_address_byte     <= "000";
 						when TX_CLIENT_DATA_WAIT_SOURCE_ADDRESS =>
 							data_out   := tx_data_i;
 							update_fcs := TRUE;
 							-- Skip destination address
 							if tx_mac_address_byte < MAC_ADDRESS_BYTES then
-								tx_mac_address_byte <= tx_mac_address_byte + 1;
+								tx_mac_address_byte <= tx_mac_address_byte + "001";
 							else
 								-- All-ones means that we should insert the source address here
 								if tx_data_i = x"FF" then
 									tx_state            <= TX_SOURCE_ADDRESS;
 									-- Override client data with first source address byte
-									data_out            := extract_byte(mac_address_i, 0);
-									-- Second byte is to be sent in next cycle
-									tx_mac_address_byte <= 1;
+                                    data_out := mac_address_i(7 downto 0);
+ 									-- Second byte is to be sent in next cycle
+									tx_mac_address_byte <= "001";
 								else
 									-- Transmit as usual, skip TX_SOURCE_ADDRESS
 									tx_state <= TX_CLIENT_DATA;
@@ -192,8 +196,8 @@ begin
 						when TX_SOURCE_ADDRESS =>
 							data_out   := extract_byte(mac_address_i, tx_mac_address_byte);
 							update_fcs := TRUE;
-							if tx_mac_address_byte < MAC_ADDRESS_BYTES - 1 then
-								tx_mac_address_byte <= tx_mac_address_byte + 1;
+							if tx_mac_address_byte < (MAC_ADDRESS_BYTES - "001") then
+								tx_mac_address_byte <= tx_mac_address_byte + "001";
 							else
 								-- Address completely sent when tx_mac_address_byte reaches 5
 								-- Pass on client data again in next cycle
@@ -266,7 +270,7 @@ begin
 	rx_fsm_sync : process(rx_reset_i, rx_clock_i)
 	begin
 		if rx_reset_i = '1' then
-			rx_state <= RX_WAIT_START_FRAME_DELIMITER;
+                  rx_state <= RX_WAIT_START_FRAME_DELIMITER;
 		elsif rising_edge(rx_clock_i) then
 			rx_error_o         <= '0';
 			rx_data_o          <= mii_rx_data_i;
@@ -276,7 +280,7 @@ begin
 			case rx_state is
 				when RX_WAIT_START_FRAME_DELIMITER =>
 					-- Reset MAC address detection
-					rx_mac_address_byte     <= 0;
+					rx_mac_address_byte     <= "000";
 					rx_is_group_address         <= '1';
 					-- Reset frame size and FCS
 					rx_frame_size           <= 0;
@@ -323,7 +327,7 @@ begin
 							-- Check destination MAC address (first 6 bytes of packet)
 							if rx_mac_address_byte < MAC_ADDRESS_BYTES then
 								-- First byte determines whether the address is an individual or group address
-								if rx_mac_address_byte = 0 then
+								if rx_mac_address_byte = "000" then
 									if mii_rx_data_i(0) = '0' then
 										-- LSB of the address is zero: packet is destined for an individual entity
 										rx_is_group_address <= '0';
@@ -342,7 +346,7 @@ begin
 									end if;
 								end if;
 
-								rx_mac_address_byte <= rx_mac_address_byte + 1;
+								rx_mac_address_byte <= rx_mac_address_byte + "001";
 							end if;
 						end if;
 						if mii_rx_error_i = '1' then

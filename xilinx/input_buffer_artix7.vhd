@@ -29,39 +29,13 @@ entity input_buffer is
 end entity;
 
 architecture artix_7 of input_buffer is
-	signal delayed : std_ulogic := '0';
 
-	-- Force putting input Flip-Flop into IOB so it doesn't end up in a normal logic tile
-	-- which would ruin the timing.
-	attribute iob : string;
-	attribute iob of FDRE_inst : label is "FORCE";
 begin
-	-- When delay activated: Instantiate IODELAY2 and then capture its output
-	delay_gen : if HAS_DELAY = TRUE generate
-		fixed_input_delay_inst : entity work.fixed_input_delay
-			generic map(
-				IDELAY_VALUE => IDELAY_VALUE
-			)
-			port map(
-				pad_i     => pad_i,
-				delayed_o => delayed
-			);
-	end generate;
 
-	-- When delay deactivated: Directly capture the signal
-	no_delay_gen : if HAS_DELAY = FALSE generate
-		delayed <= pad_i;
-	end generate;
-
-	FDRE_inst : FDRE
-		generic map(
-			INIT => '0')                -- Initial value of register ('0' or '1')  
-		port map(
-			Q  => buffer_o,             -- Data output
-			C  => clock_i,              -- Clock input
-			CE => '1',                  -- Clock enable input
-			R  => '0',                  -- Synchronous reset input
-			D  => delayed               -- Data input
-		);
+	process(clock_i) begin
+    if rising_edge(clock_i) then
+        buffer_o <= pad_i;
+		end if;
+	end process;
 
 end architecture;

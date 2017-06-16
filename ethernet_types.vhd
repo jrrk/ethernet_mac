@@ -12,8 +12,8 @@ package ethernet_types is
 	-- Ethernet speed, values defined below
 	subtype t_ethernet_speed is std_ulogic_vector(1 downto 0);
 	-- Ethernet MAC layer address
-	constant MAC_ADDRESS_BYTES : positive := 6;
-	subtype t_mac_address is std_ulogic_vector((MAC_ADDRESS_BYTES * 8 - 1) downto 0);
+	constant MAC_ADDRESS_BYTES : std_logic_vector(2 downto 0) := "110";
+	subtype t_mac_address is std_ulogic_vector(47 downto 0);
 	-- Use utility.reverse_bytes to convert from the canoncial form to the internal representation
 	-- Example: signal m : t_mac_address := reverse_bytes(x"04AA19BCDE10");
 	-- m then represents the canoncial address 04-AA-19-BC-DE-10

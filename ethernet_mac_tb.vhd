@@ -117,21 +117,21 @@ architecture behavioral of ethernet_mac_tb is
 			-- Check data
 			if respect_address = TRUE then
 				-- Verify that the destination address is untouched
-				for i in 0 to MAC_ADDRESS_BYTES - 1 loop
+				for i in 0 to 5 loop
 					if left.data(i) /= right.data(i) then
 						report "Transaction destination address mismatch at index " & integer'image(i) severity note;
 						return FALSE;
 					end if;
 				end loop;
 				-- Compare the source address with the constant
-				for i in 0 to MAC_ADDRESS_BYTES - 1 loop
-					if right.data(MAC_ADDRESS_BYTES + i) /= extract_byte(TEST_MAC_ADDRESS, i) then
+				for i in 0 to 5 loop
+					if right.data(6 + i) /= extract_byte(TEST_MAC_ADDRESS, std_logic_vector(to_unsigned(i,3))) then
 						report "Transaction source address mismatch at index " & integer'image(i) severity note;
 						return FALSE;
 					end if;
 				end loop;
 				-- Start normal verification after the addresses
-				data_begin := 2 * MAC_ADDRESS_BYTES;
+				data_begin := 12;
 			end if;
 			-- Compare rest of data (or all if respect_address is FALSE)
 			for i in data_begin to left.size - 1 loop
@@ -231,7 +231,7 @@ architecture behavioral of ethernet_mac_tb is
 	procedure copy_to_buffer_packet(source : in std_ulogic_vector; signal destination : inout t_packet_buffer; transaction : in integer) is
 	begin
 		for i in 0 to source'high / 8 loop
-			destination(transaction).data(i) <= extract_byte(source, i);
+			destination(transaction).data(i) <= extract_byte(source, std_logic_vector(to_unsigned(i,3)));
 		end loop;
 	end procedure;
 
@@ -662,7 +662,7 @@ begin
 				-- Test size that is greater than total RX buffer size
 				test_broken_size(9999);
 				-- Test different destination MAC address
-				for b in 0 to MAC_ADDRESS_BYTES - 1 loop
+				for b in 0 to 5 loop
 					-- Make sure byte position b does not match
 					send_packet_buffer(0).data(b)(5) <= not send_packet_buffer(0).data(b)(5);
 					report "Check MAC destination address mismatch at position " & integer'image(b) & ":" severity note;
@@ -769,7 +769,7 @@ begin
 			-- Destination address
 			copy_to_buffer_packet(TEST_MAC_ADDRESS, send_packet_buffer, packet_i);
 			-- Source address
-			for i in MAC_ADDRESS_BYTES to 2 * MAC_ADDRESS_BYTES - 1 loop
+			for i in 6 to 11 loop
 				-- Destination and source address
 				send_packet_buffer(packet_i).data(i) <= x"FF";
 			end loop;

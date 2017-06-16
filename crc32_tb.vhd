@@ -66,6 +66,22 @@ architecture behavioral of crc32_tb is
 		return NEWCRC;
 	end NEXTCRC32_D8;
 
+ -- By PK debug mean for printing std_logic
+  function prtstd( id : string; v : std_ulogic_vector ) return integer is
+  variable s : string( 3 downto 1 );
+  variable r : string( (v'left+1) downto (v'right+1) );
+  begin
+    for i in v'left downto v'right loop
+    --report std_logic'image(v(i));
+      s := std_logic'image(v(i));
+    --string must start/stop at 1
+    --          '1' we need only the second character
+      r(i+1) := s(2);
+    end loop;
+    report id & " " & r & " dbg end" severity note ;
+    return 0;
+  end prtstd;
+        
 	-- Signals as isim cannot trace variables
 	signal crc            : t_crc32;
 	signal comparison_crc : t_crc32;
@@ -73,17 +89,23 @@ architecture behavioral of crc32_tb is
 
 	constant WAIT_PERIOD : time := 40 ns;
 begin
-	test_crc32 : process
-		variable saved_crc : t_crc32;
+  test_crc32 : process
+    variable junk: integer;
+    variable saved_crc : t_crc32;
 	begin
 		crc            <= (others => '1');
 		comparison_crc <= (others => '1');
 		data           <= (others => '0');
 		wait for WAIT_PERIOD;
+                junk := prtstd("magic", CRC32_POSTINVERT_MAGIC);
 
 		for cnt in 0 to 10 loop
+                        junk := prtstd("crc", crc);
+                        junk := prtstd("data",data);
 			crc            <= update_crc32(crc, data);
 			comparison_crc <= NEXTCRC32_D8(data, crc);
+                        junk := prtstd("crc",crc);
+                        
 			if cnt >= 7 then
 				data <= (others => '0');
 			else

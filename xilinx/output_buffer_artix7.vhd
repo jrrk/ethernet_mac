@@ -24,19 +24,13 @@ entity output_buffer is
 end entity;
 
 architecture artix_7 of output_buffer is
-	-- Force putting input Flip-Flop into IOB so it doesn't end up in a normal logic tile
-	-- which would ruin the timing.
-	attribute iob : string;
-	attribute iob of FDRE_inst : label is "FORCE";
+
 begin
-	FDRE_inst : FDRE
-		generic map(
-			INIT => '0')                -- Initial value of register ('0' or '1')  
-		port map(
-			Q  => pad_o,                -- Data output
-			C  => clock_i,              -- Clock input
-			CE => '1',                  -- Clock enable input
-			R  => '0',                  -- Synchronous reset input
-			D  => buffer_i              -- Data input
-		);
+
+	process(clock_i) begin
+    if rising_edge(clock_i) then
+        pad_o <= buffer_i;
+		end if;
+	end process;
+
 end architecture;
