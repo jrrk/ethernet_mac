@@ -37,6 +37,7 @@ entity framing is
 		tx_enable_i            : in  std_ulogic;
 		tx_data_i              : in  t_ethernet_data;
 		tx_byte_sent_o         : out std_ulogic;
+                tx_fcs_o               : out t_crc32;
 		-- Do not start new frames while asserted
 		-- (continuing the previous one is alright)
 		tx_busy_o              : out std_ulogic;
@@ -47,7 +48,8 @@ entity framing is
 		rx_byte_received_o     : out std_ulogic;
 		rx_error_o             : out std_ulogic;
 		rx_frame_size_o        : out std_logic_vector(10 downto 0);
-
+                rx_fcs_o               : out t_crc32;
+                
 		-- TX to MII
 		mii_tx_enable_o        : out std_ulogic;
 		mii_tx_data_o          : out t_ethernet_data;
@@ -107,7 +109,10 @@ architecture rtl of framing is
 	signal rx_mac_address_byte : std_logic_vector(2 downto 0);
 
 begin
-    rx_frame_size_o <= std_logic_vector(to_unsigned(rx_frame_size,11));
+  rx_frame_size_o <= std_logic_vector(to_unsigned(rx_frame_size,11));
+  rx_fcs_o <= rx_frame_check_sequence;
+  tx_fcs_o <= tx_frame_check_sequence;
+  
 	-- Pass mii_tx_byte_sent_i through directly as long as data is being transmitted
 	-- to avoid having to prefetch data in the synchronous process
 	tx_byte_sent_o <= '1' when ((tx_state = TX_CLIENT_DATA or tx_state = TX_CLIENT_DATA_WAIT_SOURCE_ADDRESS or tx_state = TX_SOURCE_ADDRESS) and mii_tx_byte_sent_i = '1') else '0';
@@ -120,8 +125,14 @@ begin
 		if tx_reset_i = '1' then
 			tx_state        <= TX_IDLE;
 			mii_tx_enable_o <= '0';
-			tx_busy_o       <= '1';
+			tx_busy_o       <= '0';
                         tx_padding_required <= 0;
+                        mii_tx_data_o <= (others => '0');
+                        mii_tx_gap_o    <= '0';
+                        -- Load FCS
+                        -- Initial value is 0xFFFFFFFF which is equivalent to inverting the first 32 bits of the frames
+                        -- as required in clause 3.2.9 a
+                        tx_frame_check_sequence <= (others => '1');
 		elsif rising_edge(tx_clock_i) then
 			mii_tx_enable_o <= '0';
 			tx_busy_o       <= '0';
@@ -161,8 +172,6 @@ begin
 							-- Load padding register
 							tx_padding_required     <= MIN_FRAME_DATA_BYTES;
 							-- Load FCS
-							-- Initial value is 0xFFFFFFFF which is equivalent to inverting the first 32 bits of the frame
-							-- as required in clause 3.2.9 a
 							tx_frame_check_sequence <= (others => '1');
 							-- Load MAC address counter
 							tx_mac_address_byte     <= "000";
@@ -271,8 +280,10 @@ begin
 	begin
 		if rx_reset_i = '1' then
                   rx_state <= RX_WAIT_START_FRAME_DELIMITER;
+                  rx_error_o         <= '0';
+                  rx_frame_size           <= 0;
+                  rx_frame_check_sequence <= (others => '1');
 		elsif rising_edge(rx_clock_i) then
-			rx_error_o         <= '0';
 			rx_data_o          <= mii_rx_data_i;
 			rx_byte_received_o <= '0';
 			rx_frame_o         <= '0';
@@ -282,13 +293,13 @@ begin
 					-- Reset MAC address detection
 					rx_mac_address_byte     <= "000";
 					rx_is_group_address         <= '1';
-					-- Reset frame size and FCS
-					rx_frame_size           <= 0;
-					-- Initial value is 0xFFFFFFFF which is equivalent to inverting the first 32 bits of the frame
-					-- as required in clause 3.2.9 a
-					rx_frame_check_sequence <= (others => '1');
 
 					if mii_rx_frame_i = '1' then
+					  -- Reset frame size and FCS
+                                          rx_frame_size           <= 0;
+					  -- Initial value is 0xFFFFFFFF which is equivalent to inverting the first 32 bits of the frame
+					  -- as required in clause 3.2.9 a
+					  rx_frame_check_sequence <= (others => '1');
 						if mii_rx_byte_received_i = '1' then
 							case mii_rx_data_i is
 								when START_FRAME_DELIMITER_DATA =>
